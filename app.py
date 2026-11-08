@@ -210,7 +210,7 @@ with tab_about:
     with c2:
         st.subheader("📈 Class balance")
         counts = pd.Series(CLASS_COUNTS).sort_values()
-        fig, ax = plt.subplots(figsize=(4.6, 3.1))
+        fig, ax = plt.subplots(figsize=(4.6, 3.1), dpi=110)
         ax.barh(counts.index, counts.values, color="#2f6b3a")
         ax.set_xlabel("Rows in the full dataset")
         st.pyplot(fig)
@@ -287,8 +287,11 @@ else:
             col.metric(k.upper(), fmt(v))
         st.markdown("---")
 
-        left, right = st.columns(2)
         labels = list(pipe.classes_)
+        rep = classification_report(y, pred, labels=labels, output_dict=True, zero_division=0)
+
+        # ---- Row 1: confusion matrix | classification report ----
+        left, right = st.columns(2, gap="large")
         with left:
             st.subheader("Confusion matrix")
             as_percent = st.checkbox("Show as % of each actual class", value=False)
@@ -297,44 +300,58 @@ else:
                 shown, fmt_str = cm / np.maximum(cm.sum(axis=1, keepdims=True), 1) * 100, ".0f"
             else:
                 shown, fmt_str = cm, "d"
-            fig, ax = plt.subplots(figsize=(6, 4.8))
+            fig, ax = plt.subplots(figsize=(5.2, 4.0), dpi=110)
             sns.heatmap(shown, annot=True, fmt=fmt_str, cmap="YlGn", cbar=False, ax=ax,
-                        xticklabels=labels, yticklabels=labels)
-            ax.set_xlabel("Predicted")
-            ax.set_ylabel("Actual")
-            plt.xticks(rotation=35, ha="right")
+                        xticklabels=labels, yticklabels=labels, annot_kws={"size": 8})
+            ax.set_xlabel("Predicted", fontsize=9)
+            ax.set_ylabel("Actual", fontsize=9)
+            ax.tick_params(labelsize=8)
+            plt.setp(ax.get_xticklabels(), rotation=35, ha="right")
+            fig.tight_layout()
             st.pyplot(fig)
             plt.close(fig)
         with right:
             st.subheader("Classification report")
-            rep = classification_report(y, pred, labels=labels, output_dict=True, zero_division=0)
-            st.dataframe(pd.DataFrame(rep).T.style.format("{:.3f}"))
-            st.markdown("**F1 score per variety**")
+            st.dataframe(pd.DataFrame(rep).T.style.format("{:.3f}"), height=320)
+
+        st.markdown("---")
+
+        # ---- Row 2: ROC curves | F1 per variety ----
+        roc_col, f1_col = st.columns(2, gap="large")
+        with roc_col:
+            st.subheader("ROC curves (one vs rest)")
+            Y = label_binarize(y, classes=labels)
+            fig, ax = plt.subplots(figsize=(5.2, 3.8), dpi=110)
+            drawn = 0
+            for i, cls in enumerate(labels):
+                if Y.shape[1] > i and 0 < Y[:, i].sum() < len(Y):
+                    fpr, tpr, _ = roc_curve(Y[:, i], proba[:, i])
+                    ax.plot(fpr, tpr, lw=1.3, label=cls)
+                    drawn += 1
+            ax.plot([0, 1], [0, 1], "--", color="grey", lw=0.8)
+            ax.set_xlabel("False positive rate", fontsize=9)
+            ax.set_ylabel("True positive rate", fontsize=9)
+            ax.tick_params(labelsize=8)
+            if drawn:
+                ax.legend(fontsize=7, loc="lower right")
+                fig.tight_layout()
+                st.pyplot(fig)
+            else:
+                st.caption("ROC curves need examples of at least two varieties in the uploaded file.")
+            plt.close(fig)
+        with f1_col:
+            st.subheader("F1 score per variety")
             f1s = pd.Series({k: rep[k]["f1-score"] for k in labels}).sort_values()
-            fig, ax = plt.subplots(figsize=(5.5, 2.8))
+            fig, ax = plt.subplots(figsize=(5.2, 3.8), dpi=110)
             ax.barh(f1s.index, f1s.values, color="#7b4a12")
             ax.set_xlim(0, 1.05)
+            ax.set_xlabel("F1 score", fontsize=9)
+            ax.tick_params(labelsize=8)
+            for yi, v in enumerate(f1s.values):
+                ax.text(min(v + 0.01, 1.0), yi, f"{v:.2f}", va="center", fontsize=7)
+            fig.tight_layout()
             st.pyplot(fig)
             plt.close(fig)
-
-        st.subheader("ROC curves (one variety versus the rest)")
-        Y = label_binarize(y, classes=labels)
-        fig, ax = plt.subplots(figsize=(6.4, 4.2))
-        drawn = 0
-        for i, cls in enumerate(labels):
-            if Y.shape[1] > i and 0 < Y[:, i].sum() < len(Y):
-                fpr, tpr, _ = roc_curve(Y[:, i], proba[:, i])
-                ax.plot(fpr, tpr, lw=1.6, label=cls)
-                drawn += 1
-        ax.plot([0, 1], [0, 1], "--", color="grey", lw=1)
-        ax.set_xlabel("False positive rate")
-        ax.set_ylabel("True positive rate")
-        if drawn:
-            ax.legend(fontsize=8, loc="lower right")
-            st.pyplot(fig)
-        else:
-            st.caption("ROC curves need examples of at least two varieties in the uploaded file.")
-        plt.close(fig)
 
         out = data.copy()
         out["Predicted_Class"] = pred
@@ -373,7 +390,7 @@ else:
         d2.metric("Features", len(FEATURES))
         d3.metric("Classes in file", y.nunique())
         feat = st.selectbox("Distribution of a feature by variety", FEATURES)
-        fig, ax = plt.subplots(figsize=(7.5, 3.4))
+        fig, ax = plt.subplots(figsize=(7.5, 3.0), dpi=110)
         for cls in sorted(y.unique()):
             ax.hist(X.loc[y == cls, feat], bins=30, alpha=0.5, label=cls)
         ax.set_xlabel(feat)
