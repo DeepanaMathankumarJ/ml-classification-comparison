@@ -114,6 +114,12 @@ section[data-testid="stSidebar"] > div {{background: #f4f8f2;}}
 .fact span:first-child {{opacity:0.7;}}
 .winner {{border-left: 6px solid {LIME}; background: #ffffff;
          padding: 12px 16px; border-radius: 14px; margin: 8px 0 14px 0;}}
+.kpi-grid {{display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin: 6px 0 4px 0;}}
+@media (max-width: 900px) {{.kpi-grid {{grid-template-columns: repeat(3, minmax(0, 1fr));}}}}
+.kpi {{background: #ffffff; border-radius: 18px; padding: 12px 14px; border-top: 5px solid {LIME};
+      box-shadow: 0 1px 3px rgba(5,56,47,0.06);}}
+.kpi small {{display: block; font-size: 0.72rem; letter-spacing: 0.04em; opacity: 0.7; white-space: nowrap;}}
+.kpi b {{font-size: 1.45rem; color: {DEEP};}}
 div[data-testid="stMetric"] {{background: #ffffff; border-radius: 18px; padding: 12px 16px;
        box-shadow: 0 1px 3px rgba(5,56,47,0.06);}}
 div[data-testid="stVerticalBlockBorderWrapper"] {{background: #ffffff; border: none !important;
@@ -231,6 +237,16 @@ with tab_about:
     st.subheader("🎯 Problem")
     st.markdown("Given 16 size and shape measurements taken from an image of one dry bean, predict which of "
                 "**seven varieties** it is. Faster, more consistent sorting is the practical goal.")
+    st.markdown("""
+**About the dataset**
+- **Source:** *Dry Bean Dataset* from the UCI Machine Learning Repository (id 602), published by Koklu and Ozkan (2020).
+- **How it was built:** a computer-vision system photographed **13,611 dry beans** with a high-resolution camera; each bean was segmented and measured.
+- **Seven varieties (classes):** Barbunya, Bombay, Cali, Dermason, Horoz, Seker and Sira.
+- **Sixteen numeric features:** 12 size/dimension measurements (area, perimeter, axis lengths, etc.) and 4 shape-form descriptors (ShapeFactor1 to 4).
+- **Class imbalance:** Dermason is the largest class (3,546 beans) and Bombay the smallest (522), so weighted metrics and MCC are reported alongside accuracy.
+- **Data quality:** no missing values; 68 duplicate rows were kept. No categorical features, so no encoding is needed.
+- **Split:** stratified 80/20 train/test (10,888 / 2,723 rows, seed 42), so every variety appears in both sets in the same proportion.
+""")
     c1, c2 = st.columns([1.1, 1])
     with c1:
         st.subheader("🗂️ Dataset at a glance")
@@ -312,8 +328,9 @@ else:
         st.markdown("")
         st.markdown(f"### {selected} classified **{correct:,}** of **{len(data):,}** beans correctly "
                     f"(**{scores['Accuracy'] * 100:.1f}%**)")
-        for col, (k, v) in zip(st.columns(6), scores.items()):
-            col.metric(k.upper(), fmt(v))
+        tiles = "".join(f'<div class="kpi"><small>{k.upper()}</small><b>{fmt(v)}</b></div>'
+                        for k, v in scores.items())
+        st.markdown(f'<div class="kpi-grid">{tiles}</div>', unsafe_allow_html=True)
         st.markdown("---")
 
         labels = list(pipe.classes_)
@@ -380,17 +397,33 @@ else:
 
         st.markdown("---")
 
-        # ---- Row 2: full-width classification report (all columns visible, no scrolling) ----
+        # ---- Row 2: full-width report with all six assignment metrics per variety ----
         with st.container(border=True):
             st.subheader("Classification report")
-            report = pd.DataFrame({k: rep[k] for k in labels + ["macro avg", "weighted avg"]}).T
-            report.loc["accuracy"] = [np.nan, np.nan, rep["accuracy"], len(y)]
-            report = report.loc[labels + ["accuracy", "macro avg", "weighted avg"]]
-            report.columns = ["Precision", "Recall", "F1-score", "Support"]
+            rows = {}
+            for i, cls in enumerate(labels):
+                yt, yp = (y.values == cls), (pred == cls)
+                try:
+                    cls_auc = roc_auc_score(yt, proba[:, i])
+                except ValueError:
+                    cls_auc = np.nan
+                rows[cls] = {
+                    "Accuracy": (yt == yp).mean(), "AUC": cls_auc,
+                    "Precision": rep[cls]["precision"], "Recall": rep[cls]["recall"],
+                    "F1 Score": rep[cls]["f1-score"], "MCC": matthews_corrcoef(yt, yp),
+                    "Support": rep[cls]["support"]}
+            rows["macro avg"] = {**pd.DataFrame(rows).T.drop(columns="Support").mean().to_dict(),
+                                 "Support": len(y)}
+            rows["weighted avg (overall)"] = {
+                **{k: scores[k] for k in ["Accuracy", "AUC", "Precision", "Recall", "F1 Score", "MCC"]},
+                "Support": len(y)}
+            report = pd.DataFrame(rows).T
             st.dataframe(
-                report.style.format({"Precision": "{:.3f}", "Recall": "{:.3f}",
-                                     "F1-score": "{:.3f}", "Support": "{:,.0f}"}, na_rep=""),
+                report.style.format({c: "{:.3f}" for c in report.columns if c != "Support"}
+                                    | {"Support": "{:,.0f}"}, na_rep=""),
                 height=(len(report) + 1) * 35 + 3)
+            st.caption("Per-variety Accuracy, AUC and MCC are one-vs-rest (that variety against all others). "
+                       "The last row repeats the overall weighted scores shown in the tiles above.")
 
         out = data.copy()
         out["Predicted_Class"] = pred
@@ -440,3 +473,4 @@ else:
         st.dataframe(data.head(200))
         with st.expander("Summary statistics"):
             st.dataframe(X.describe().T.round(3))
+    
