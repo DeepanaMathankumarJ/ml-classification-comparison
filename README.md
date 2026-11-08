@@ -5,8 +5,8 @@
 
 | | |
 |---|---|
-| **GitHub repository** | `<PASTE YOUR GITHUB REPO URL HERE>` |
-| **Live Streamlit app** | `<PASTE YOUR STREAMLIT COMMUNITY CLOUD URL HERE>` |
+| **GitHub repository** | `https://github.com/DeepanaMathankumarJ/ml-classification-comparison` |
+| **Live Streamlit app** | `https://ml-classification-comparison-brjvypp8lhqhzv72op33zj.streamlit.app/` |
 
 ---
 
@@ -35,10 +35,10 @@ Because the classes are imbalanced, Precision, Recall and F1 are **weighted aver
 
 ## c. GitHub repository
 
-`<PASTE YOUR GITHUB REPO URL HERE>`
+`https://github.com/DeepanaMathankumarJ/ml-classification-comparison`
 
 ```
-project-folder/
+ml-classification-comparison/main
 │-- app.py                      # Streamlit application
 │-- requirements.txt            # pinned dependencies
 │-- README.md
