@@ -17,10 +17,9 @@ from sklearn.preprocessing import label_binarize
 # =====================================================================
 # CONFIG - edit this block only
 # =====================================================================
-STUDENT_NAME = "Your Name"
-STUDENT_ID = "Your BITS ID"
 
 TARGET = "Class"
+
 DATASET_FACTS = {
     "Name": "Dry Bean Dataset (UCI id 602)",
     "Instances": "13,611",
@@ -67,6 +66,9 @@ FEATURE_INFO = {
 }
 SETTING_KEYS = ["C", "kernel", "gamma", "max_depth", "min_samples_leaf",
                 "n_neighbors", "weights", "var_smoothing"]
+
+STUDENT_NAME = "Deepana Jayachandran"
+STUDENT_ID = "2026AK05687"
 
 ROOT = Path(__file__).resolve().parent
 MODEL_DIR = next((p for p in (ROOT / "model", ROOT / "models") if p.is_dir()), None)
